@@ -133,7 +133,16 @@ app.post("/api/register", async (req, res, next) => {
       throw error;
     }
 
-    await createVerification(data);
+    try {
+      await createVerification(data);
+    } catch (verificationError) {
+      console.error("No se pudo enviar el correo de verificacion:", verificationError);
+      await supabase.from("app_users").delete().eq("user_id", data.user_id);
+      return res.status(502).json({
+        error: "No se pudo enviar el correo de verificacion. Revisa la configuracion SMTP e intenta de nuevo."
+      });
+    }
+
     res.status(201).json({ message: "Cuenta creada. Revisa tu correo para verificarla." });
   } catch (error) {
     next(error);

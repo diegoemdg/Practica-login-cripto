@@ -143,6 +143,11 @@ button:hover,
   background: var(--primary-strong);
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .message {
   min-height: 22px;
   margin: 12px 0 0;

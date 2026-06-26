@@ -42,6 +42,12 @@ function redirectTarget(form, data) {
 document.querySelectorAll("form[data-endpoint]").forEach((form) => {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const buttons = Array.from(form.querySelectorAll("button"));
+    buttons.forEach((button) => {
+      button.disabled = true;
+    });
+    show(form, "Procesando...");
+
     const data = formData(form);
     if (form.elements.acceptedPrivacy) {
       data.acceptedPrivacy = form.elements.acceptedPrivacy.checked;
@@ -60,6 +66,9 @@ document.querySelectorAll("form[data-endpoint]").forEach((form) => {
       }
     } catch (error) {
       show(form, error.message, true);
+      buttons.forEach((button) => {
+        button.disabled = false;
+      });
     }
   });
 });
