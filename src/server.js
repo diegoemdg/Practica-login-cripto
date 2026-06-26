@@ -75,7 +75,7 @@ async function resendPendingVerification(userId, email, res) {
 
   await createVerification(existingUser);
   return res.status(200).json({
-    message: "La cuenta ya existia sin verificar. Enviamos otro codigo a tu correo."
+    message: "La cuenta ya existia sin verificar. Enviamos otro enlace a tu correo."
   });
 }
 
