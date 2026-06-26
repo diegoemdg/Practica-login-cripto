@@ -7,8 +7,8 @@ function appUrl() {
     .replace(/\/+$/, "");
 }
 
-function callbackUrl(mode) {
-  return `${appUrl()}/auth/callback?mode=${encodeURIComponent(mode)}`;
+function callbackUrl() {
+  return `${appUrl()}/auth/callback`;
 }
 
 async function sendVerificationEmail({ email, userId }) {
@@ -16,7 +16,7 @@ async function sendVerificationEmail({ email, userId }) {
     email,
     options: {
       shouldCreateUser: true,
-      emailRedirectTo: callbackUrl("verify"),
+      emailRedirectTo: callbackUrl(),
       data: {
         user_id: userId
       }
@@ -31,7 +31,7 @@ async function sendResetEmail({ email }) {
     email,
     options: {
       shouldCreateUser: true,
-      emailRedirectTo: callbackUrl("reset")
+      emailRedirectTo: callbackUrl()
     }
   });
 

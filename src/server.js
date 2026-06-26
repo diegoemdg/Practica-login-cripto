@@ -156,7 +156,6 @@ app.get("/auth/callback", (_req, res) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mode: search.get("mode") || "verify",
             code: search.get("code") || "",
             accessToken: hash.get("access_token") || ""
           })
@@ -174,12 +173,6 @@ app.get("/auth/callback", (_req, res) => {
 
 app.post("/api/auth-email-callback", async (req, res, next) => {
   try {
-    requireFields(req.body, ["mode"]);
-    const mode = String(req.body.mode);
-    if (!["verify", "reset"].includes(mode)) {
-      return res.status(400).json({ error: "Modo de enlace invalido." });
-    }
-
     const authUser = await userFromSupabaseCallback({
       accessToken: req.body.accessToken,
       code: req.body.code
@@ -189,23 +182,29 @@ app.post("/api/auth-email-callback", async (req, res, next) => {
       return res.status(400).json({ error: "Supabase no devolvio un correo valido." });
     }
 
-    if (mode === "reset") {
+    const { data: localUser, error: localUserError } = await supabase
+      .from("app_users")
+      .select("user_id,email_verified_at")
+      .eq("email", email)
+      .maybeSingle();
+    if (localUserError) throw localUserError;
+    if (!localUser) {
+      return res.status(404).json({ error: "No existe una cuenta local para este correo." });
+    }
+
+    if (localUser.email_verified_at) {
       const token = await createPasswordResetToken(email);
       return res.json({
         redirectTo: `/reset-password.html?token=${encodeURIComponent(token)}`
       });
     }
 
-    const { data: updatedUser, error } = await supabase
+    const { error } = await supabase
       .from("app_users")
       .update({ email_verified_at: new Date().toISOString() })
       .eq("email", email)
-      .select("user_id")
-      .maybeSingle();
+      .select("user_id");
     if (error) throw error;
-    if (!updatedUser) {
-      return res.status(404).json({ error: "No existe una cuenta local para este correo." });
-    }
 
     res.json({ redirectTo: "/login.html?verified=1" });
   } catch (error) {
@@ -245,8 +244,9 @@ app.post("/api/register", async (req, res, next) => {
     } catch (verificationError) {
       console.error("No se pudo enviar el correo de verificacion:", verificationError);
       await supabase.from("app_users").delete().eq("user_id", data.user_id);
+      const detail = verificationError.message ? ` Detalle: ${verificationError.message}` : "";
       return res.status(502).json({
-        error: "No se pudo enviar el correo de verificacion desde Supabase. Revisa Auth > URL Configuration e intenta de nuevo."
+        error: `No se pudo enviar el correo de verificacion desde Supabase.${detail}`
       });
     }
 
