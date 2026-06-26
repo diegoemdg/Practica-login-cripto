@@ -39,6 +39,47 @@ function normalizeUserId(userId) {
   return String(userId || "").trim();
 }
 
+async function findUserByIdOrEmail(userId, email) {
+  const { data: byId, error: byIdError } = await supabase
+    .from("app_users")
+    .select("user_id,email,email_verified_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (byIdError) throw byIdError;
+
+  if (byId) return byId;
+
+  const { data: byEmail, error: byEmailError } = await supabase
+    .from("app_users")
+    .select("user_id,email,email_verified_at")
+    .eq("email", email)
+    .maybeSingle();
+  if (byEmailError) throw byEmailError;
+
+  return byEmail;
+}
+
+async function resendPendingVerification(userId, email, res) {
+  const existingUser = await findUserByIdOrEmail(userId, email);
+
+  if (!existingUser) {
+    return res.status(409).json({ error: "El ID o correo ya existe." });
+  }
+
+  if (existingUser.user_id !== userId || existingUser.email !== email) {
+    return res.status(409).json({ error: "El ID o correo ya existe." });
+  }
+
+  if (existingUser.email_verified_at) {
+    return res.status(409).json({ error: "El ID o correo ya existe." });
+  }
+
+  await createVerification(existingUser);
+  return res.status(200).json({
+    message: "La cuenta ya existia sin verificar. Enviamos otro codigo a tu correo."
+  });
+}
+
 async function createVerification(user) {
   const code = randomCode();
   const token = randomToken();
@@ -86,7 +127,9 @@ app.post("/api/register", async (req, res, next) => {
       .single();
 
     if (error) {
-      if (error.code === "23505") return res.status(409).json({ error: "El ID o correo ya existe." });
+      if (error.code === "23505") {
+        return await resendPendingVerification(user.user_id, user.email, res);
+      }
       throw error;
     }
 
