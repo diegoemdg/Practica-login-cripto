@@ -1,6 +1,28 @@
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 
+function parseMailFrom(value) {
+  const fallback = {
+    name: "Practica Criptografia",
+    email: process.env.SMTP_USER || "no-reply@example.com"
+  };
+  const text = String(value || "").trim();
+  if (!text) return fallback;
+
+  const match = text.match(/^(?:"?([^"<]*)"?\s*)?<([^<>]+)>$/);
+  if (match) {
+    return {
+      name: match[1].trim() || fallback.name,
+      email: match[2].trim()
+    };
+  }
+
+  return {
+    name: fallback.name,
+    email: text
+  };
+}
+
 function createTransport() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -16,7 +38,31 @@ function createTransport() {
   });
 }
 
-async function sendMail({ to, subject, text, html }) {
+async function sendMailWithBrevo({ to, subject, text, html }) {
+  const sender = parseMailFrom(process.env.MAIL_FROM);
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Brevo API error ${response.status}: ${errorText}`);
+  }
+}
+
+async function sendMailWithSmtp({ to, subject, text, html }) {
   const transporter = createTransport();
   await transporter.sendMail({
     from: process.env.MAIL_FROM,
@@ -25,6 +71,15 @@ async function sendMail({ to, subject, text, html }) {
     text,
     html
   });
+}
+
+async function sendMail(message) {
+  if (process.env.BREVO_API_KEY) {
+    await sendMailWithBrevo(message);
+    return;
+  }
+
+  await sendMailWithSmtp(message);
 }
 
 async function sendVerificationEmail({ email, userId, code }) {

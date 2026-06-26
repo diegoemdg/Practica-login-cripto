@@ -50,18 +50,16 @@ PASSWORD_PEPPER=un-secreto-largo-y-aleatorio
 
 ## 5. Configurar correo
 
-Para enviar correos necesitas SMTP. Puedes usar Mailtrap para pruebas, Gmail con app password, Outlook, SendGrid, Resend SMTP, etc.
+Para enviar correos en Render Free usa Brevo API, porque Render Free bloquea puertos SMTP.
 
 Configura:
 
 ```env
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=usuario@example.com
-SMTP_PASS=password-del-smtp
-MAIL_FROM="Practica Criptografia <no-reply@example.com>"
+BREVO_API_KEY=tu_api_key_de_brevo
+MAIL_FROM="Practica Criptografia <correo_verificado_en_brevo>"
 ```
+
+Para pruebas locales tambien puedes usar SMTP con Gmail App Password o Mailtrap.
 
 ## 6. Instalar y ejecutar
 

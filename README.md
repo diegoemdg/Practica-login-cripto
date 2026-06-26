@@ -5,7 +5,7 @@ Este proyecto implementa un login propio para una practica de criptografia:
 - Registro con `ID`, `correo` y `password`.
 - Aviso de privacidad y consentimiento.
 - Hash de password con `SHA3-256`, sal aleatoria y pepper.
-- Verificacion de cuenta por codigo o enlace enviado por correo.
+- Verificacion de cuenta por codigo enviado por correo.
 - Recuperacion segura de cuenta mediante enlace para cambiar la password.
 - Base de datos propia en Supabase/PostgreSQL.
 
@@ -66,12 +66,23 @@ sha3_256$SALT_BASE64URL$HASH_BASE64URL
 
 1. El usuario se registra con ID, correo, password y acepta el aviso de privacidad.
 2. El servidor genera una sal, calcula el hash y guarda el usuario en `app_users`.
-3. El servidor genera codigo de 6 digitos y token de enlace.
-4. En la base solo se guarda el hash del codigo y el hash del token.
-5. El usuario verifica con el codigo o dando click en el enlace.
+3. El servidor genera un codigo de 6 digitos.
+4. En la base solo se guarda el hash del codigo.
+5. El usuario verifica escribiendo el codigo recibido por correo.
 6. El login solo funciona si el correo ya fue verificado.
 7. Si olvida la password, solicita un enlace.
 8. El enlace permite establecer una nueva password; no se recupera la anterior.
+
+## Correo en Render
+
+Render Free bloquea puertos SMTP como 25, 465 y 587. Por eso en linea se recomienda Brevo API por HTTPS. Configura estas variables en Render:
+
+```env
+BREVO_API_KEY=tu_api_key_de_brevo
+MAIL_FROM=Practica Criptografia <correo_verificado_en_brevo>
+```
+
+Si no configuras `BREVO_API_KEY`, el proyecto intenta usar SMTP mediante `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASS`. Esto funciona localmente, pero no es recomendable para Render Free.
 
 ## Configuracion de Supabase
 
