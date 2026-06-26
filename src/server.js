@@ -139,7 +139,7 @@ app.post("/api/register", async (req, res, next) => {
       console.error("No se pudo enviar el correo de verificacion:", verificationError);
       await supabase.from("app_users").delete().eq("user_id", data.user_id);
       return res.status(502).json({
-        error: "No se pudo enviar el correo de verificacion. Revisa la configuracion SMTP e intenta de nuevo."
+        error: "No se pudo enviar el correo de verificacion. Revisa la configuracion del correo e intenta de nuevo."
       });
     }
 

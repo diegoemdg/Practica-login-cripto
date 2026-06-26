@@ -75,14 +75,23 @@ sha3_256$SALT_BASE64URL$HASH_BASE64URL
 
 ## Correo en Render
 
-Render Free bloquea puertos SMTP como 25, 465 y 587. Por eso en linea se recomienda Brevo API por HTTPS. Configura estas variables en Render:
+Render Free bloquea puertos SMTP como 25, 465 y 587. Por eso en linea se recomienda Gmail API por HTTPS. Configura estas variables en Render:
 
 ```env
-BREVO_API_KEY=tu_api_key_de_brevo
-MAIL_FROM=Practica Criptografia <correo_verificado_en_brevo>
+GMAIL_USER=tu_correo@gmail.com
+GMAIL_CLIENT_ID=tu_google_client_id
+GMAIL_CLIENT_SECRET=tu_google_client_secret
+GMAIL_REFRESH_TOKEN=tu_google_refresh_token
+MAIL_FROM=Practica Criptografia <tu_correo@gmail.com>
 ```
 
-Si no configuras `BREVO_API_KEY`, el proyecto intenta usar SMTP mediante `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASS`. Esto funciona localmente, pero no es recomendable para Render Free.
+El proyecto envia por Gmail API cuando detecta esas variables. Gmail API usa HTTPS, por eso funciona en Render Free y permite conservar el link publico de Render durante la semana. Si no configuras Gmail API, el proyecto intenta Brevo con `BREVO_API_KEY`; si tampoco existe, usa SMTP mediante `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASS`. SMTP funciona localmente, pero no es recomendable para Render Free.
+
+Orden de envio:
+
+1. Gmail API, si existen `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` y `GMAIL_USER`.
+2. Brevo API, si existe `BREVO_API_KEY`.
+3. SMTP, como respaldo local.
 
 ## Configuracion de Supabase
 

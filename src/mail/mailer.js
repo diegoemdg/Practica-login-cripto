@@ -4,7 +4,7 @@ const nodemailer = require("nodemailer");
 function parseMailFrom(value) {
   const fallback = {
     name: "Practica Criptografia",
-    email: process.env.SMTP_USER || "no-reply@example.com"
+    email: process.env.GMAIL_USER || process.env.SMTP_USER || "no-reply@example.com"
   };
   const text = String(value || "").trim();
   if (!text) return fallback;
@@ -36,6 +36,119 @@ function createTransport() {
       pass: process.env.SMTP_PASS
     }
   });
+}
+
+function encodeHeader(value) {
+  return `=?UTF-8?B?${Buffer.from(String(value), "utf8").toString("base64")}?=`;
+}
+
+function encodeBody(value) {
+  return Buffer.from(String(value || ""), "utf8")
+    .toString("base64")
+    .replace(/(.{76})/g, "$1\r\n");
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function formatAddress(address) {
+  const name = String(address.name || "").replace(/"/g, '\\"');
+  if (!name) return address.email;
+  return `${encodeHeader(name)} <${address.email}>`;
+}
+
+function buildGmailRawMessage({ from, to, subject, text, html }) {
+  const boundary = `boundary_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const message = [
+    `From: ${formatAddress(from)}`,
+    `To: ${to}`,
+    `Subject: ${encodeHeader(subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBody(text),
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBody(html),
+    "",
+    `--${boundary}--`
+  ].join("\r\n");
+
+  return toBase64Url(message);
+}
+
+function hasGmailApiConfig() {
+  return Boolean(
+    process.env.GMAIL_CLIENT_ID &&
+      process.env.GMAIL_CLIENT_SECRET &&
+      process.env.GMAIL_REFRESH_TOKEN &&
+      process.env.GMAIL_USER
+  );
+}
+
+async function getGmailAccessToken() {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      client_id: process.env.GMAIL_CLIENT_ID,
+      client_secret: process.env.GMAIL_CLIENT_SECRET,
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+      grant_type: "refresh_token"
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail token error ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (!data.access_token) {
+    throw new Error("Gmail token error: no se recibio access_token.");
+  }
+
+  return data.access_token;
+}
+
+async function sendMailWithGmailApi({ to, subject, text, html }) {
+  const accessToken = await getGmailAccessToken();
+  const sender = parseMailFrom(process.env.MAIL_FROM || process.env.GMAIL_USER);
+  const raw = buildGmailRawMessage({
+    from: sender,
+    to,
+    subject,
+    text,
+    html
+  });
+
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({ raw })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail send error ${response.status}: ${errorText}`);
+  }
 }
 
 async function sendMailWithBrevo({ to, subject, text, html }) {
@@ -74,6 +187,11 @@ async function sendMailWithSmtp({ to, subject, text, html }) {
 }
 
 async function sendMail(message) {
+  if (hasGmailApiConfig()) {
+    await sendMailWithGmailApi(message);
+    return;
+  }
+
   if (process.env.BREVO_API_KEY) {
     await sendMailWithBrevo(message);
     return;
