@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Instalar dependencias",
+      "type": "shell",
+      "command": "npm.cmd install",
+      "problemMatcher": []
+    },
+    {
+      "label": "Probar hash",
+      "type": "shell",
+      "command": "npm.cmd run test:hash",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Ejecutar servidor",
+      "type": "shell",
+      "command": "npm.cmd run dev",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.DS_Store
+*.zip
+_practica_login_stage/
+practica-login-criptografia Nueva/

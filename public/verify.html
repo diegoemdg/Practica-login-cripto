@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verifica correo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="auth">
+      <section class="panel auth-panel">
+        <h1>Verifica correo</h1>
+        <p>Te enviamos un codigo para comprobar que tu correo existe. Escribelo aqui para activar tu cuenta.</p>
+
+      <form data-endpoint="/api/verify-email" data-redirect="/login.html">
+        <label>ID
+          <input name="userId" autocomplete="username" data-user-from-url>
+        </label>
+        <label>Codigo
+          <input name="code" inputmode="numeric" maxlength="6" required>
+        </label>
+        <button type="submit">Finalizar verificacion</button>
+        <p class="message"></p>
+      </form>
+
+      <form class="secondary-form" data-endpoint="/api/resend-verification">
+        <label>No llego el correo?
+          <input name="email" type="email" autocomplete="email" data-email-from-url placeholder="correo registrado">
+        </label>
+        <button type="submit" class="secondary-button">Reenviar verificacion</button>
+        <p class="message"></p>
+      </form>
+
+      <p class="small-link"><a href="/login.html">Ir a inicio de sesion</a></p>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

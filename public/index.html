@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="auth">
+      <section class="panel auth-panel">
+        <h1>Registrate</h1>
+        <p>Crea tu cuenta para la practica de inicio de sesion seguro.</p>
+
+        <form data-endpoint="/api/register" data-redirect="/verify.html" data-redirect-with-fields="userId,email">
+          <label>ID
+            <input name="userId" autocomplete="username" required>
+          </label>
+          <label>Correo
+            <input name="email" type="email" autocomplete="email" required>
+          </label>
+          <label>Password
+            <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+          </label>
+          <label class="check">
+            <input name="acceptedPrivacy" type="checkbox" required>
+            Acepto el aviso de privacidad y el tratamiento de mis datos para crear la cuenta.
+          </label>
+          <button type="submit">Crear cuenta</button>
+          <p class="message"></p>
+        </form>
+        <p class="small-link">Ya tienes cuenta? <a href="/login.html">Inicia sesion</a></p>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
