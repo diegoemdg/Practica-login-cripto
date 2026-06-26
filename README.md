@@ -5,7 +5,7 @@ Este proyecto implementa un login propio para una practica de criptografia:
 - Registro con `ID`, `correo` y `password`.
 - Aviso de privacidad y consentimiento.
 - Hash de password con `SHA3-256`, sal aleatoria y pepper.
-- Verificacion de cuenta por codigo enviado por correo.
+- Verificacion de cuenta con enlace enviado por Supabase Auth.
 - Recuperacion segura de cuenta mediante enlace para cambiar la password.
 - Base de datos propia en Supabase/PostgreSQL.
 
@@ -66,32 +66,33 @@ sha3_256$SALT_BASE64URL$HASH_BASE64URL
 
 1. El usuario se registra con ID, correo, password y acepta el aviso de privacidad.
 2. El servidor genera una sal, calcula el hash y guarda el usuario en `app_users`.
-3. El servidor genera un codigo de 6 digitos.
-4. En la base solo se guarda el hash del codigo.
-5. El usuario verifica escribiendo el codigo recibido por correo.
-6. El login solo funciona si el correo ya fue verificado.
-7. Si olvida la password, solicita un enlace.
-8. El enlace permite establecer una nueva password; no se recupera la anterior.
+3. El servidor pide a Supabase Auth que envie un enlace de verificacion al correo.
+4. El usuario abre el enlace y el backend marca `email_verified_at`.
+5. El login solo permite entrar cuando el correo ya fue verificado.
+6. Si olvida la password, solicita un enlace.
+7. Supabase Auth envia el enlace de recuperacion.
+8. El backend genera un token temporal propio para guardar una nueva password; no se recupera la anterior.
 
-## Correo en Render
+## Correos con Supabase Auth
 
-Render Free bloquea puertos SMTP como 25, 465 y 587. Por eso en linea se recomienda Gmail API por HTTPS. Configura estas variables en Render:
+El proyecto usa Supabase Auth para enviar los correos de verificacion y recuperacion. Esto evita depender de SMTP, Gmail, Brevo o puertos bloqueados por Render.
+
+En Render configura:
 
 ```env
-GMAIL_USER=tu_correo@gmail.com
-GMAIL_CLIENT_ID=tu_google_client_id
-GMAIL_CLIENT_SECRET=tu_google_client_secret
-GMAIL_REFRESH_TOKEN=tu_google_refresh_token
-MAIL_FROM=Practica Criptografia <tu_correo@gmail.com>
+APP_URL=https://practica-login-cripto.onrender.com
+SUPABASE_URL=https://TU-PROYECTO.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=TU_SERVICE_ROLE_KEY
+PASSWORD_PEPPER=cambia-este-secreto-largo-y-aleatorio
 ```
 
-El proyecto envia por Gmail API cuando detecta esas variables. Gmail API usa HTTPS, por eso funciona en Render Free y permite conservar el link publico de Render durante la semana. Si no configuras Gmail API, el proyecto intenta Brevo con `BREVO_API_KEY`; si tampoco existe, usa SMTP mediante `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASS`. SMTP funciona localmente, pero no es recomendable para Render Free.
+En Supabase, agrega esta URL en **Authentication > URL Configuration > Redirect URLs**:
 
-Orden de envio:
+```text
+https://practica-login-cripto.onrender.com/auth/callback
+```
 
-1. Gmail API, si existen `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` y `GMAIL_USER`.
-2. Brevo API, si existe `BREVO_API_KEY`.
-3. SMTP, como respaldo local.
+El servicio de correos integrado de Supabase tiene limites de prueba. Para esta practica sirve, pero no debe considerarse correo de produccion.
 
 ## Configuracion de Supabase
 
@@ -103,7 +104,7 @@ Guia paso a paso: `SUPABASE_PASOS.md`.
 4. Ve a **Project Settings > API**.
 5. Copia `Project URL` y `service_role key`.
 6. Crea un archivo `.env` copiando `.env.example`.
-7. Llena tus datos de Supabase y SMTP.
+7. Llena tus datos de Supabase.
 
 La `SUPABASE_SERVICE_ROLE_KEY` solo debe vivir en el servidor. Nunca se coloca en HTML, JavaScript del navegador ni repositorios publicos.
 
@@ -143,8 +144,8 @@ http://localhost:3000
 | Metodo | Ruta | Uso |
 | --- | --- | --- |
 | POST | `/api/register` | Crea cuenta y envia correo de verificacion. |
-| POST | `/api/verify-email` | Verifica con `token` o con `userId + code`. |
-| POST | `/api/resend-verification` | Reenvia codigo si falta verificar. |
+| GET | `/auth/callback` | Recibe enlaces de Supabase Auth. |
+| POST | `/api/resend-verification` | Reenvia enlace si falta verificar. |
 | POST | `/api/login` | Inicia sesion y crea token de sesion. |
 | POST | `/api/forgot-password` | Envia enlace para cambiar password. |
 | POST | `/api/reset-password` | Cambia password con token temporal. |

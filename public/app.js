@@ -47,6 +47,24 @@ function redirectTarget(form, data) {
   return target;
 }
 
+function showPageMessage(message, isError = false) {
+  const output = document.querySelector(".message");
+  if (!output) return;
+  output.textContent = message;
+  output.className = `message ${isError ? "error" : "ok"}`;
+}
+
+const pageParams = new URLSearchParams(location.search);
+if (pageParams.get("verified") === "1") {
+  showPageMessage("Correo verificado. Ya puedes iniciar sesion.");
+}
+if (pageParams.get("reset") === "1") {
+  showPageMessage("Password actualizada. Ya puedes iniciar sesion.");
+}
+if (pageParams.get("error")) {
+  showPageMessage(pageParams.get("error"), true);
+}
+
 document.querySelectorAll("form[data-endpoint]").forEach((form) => {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -89,6 +107,11 @@ if (emailInput) {
 const userInput = document.querySelector("[data-user-from-url]");
 if (userInput) {
   userInput.value = new URLSearchParams(location.search).get("userId") || "";
+}
+
+const tokenInput = document.querySelector("[data-token-from-url]");
+if (tokenInput) {
+  tokenInput.value = new URLSearchParams(location.search).get("token") || "";
 }
 
 document.querySelectorAll("[data-logout]").forEach((button) => {

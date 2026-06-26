@@ -18,14 +18,14 @@ Un hash no se puede descifrar para volver a la password original. Por eso la rec
 
 1. El usuario escribe su correo en "Restablecer password".
 2. El backend busca si existe una cuenta con ese correo.
-3. Si existe, genera un token aleatorio.
-4. En la base de datos solo guarda el hash de ese token.
-5. El token real se envia al correo dentro de un enlace.
-6. El usuario abre el enlace y escribe una nueva password.
-7. El backend calcula el hash de la nueva password.
-8. Reemplaza `app_users.password_hash`.
-9. Marca el token como usado.
-10. Revoca sesiones anteriores.
+3. Si existe, pide a Supabase Auth que envie un enlace al correo.
+4. El usuario abre el enlace de Supabase.
+5. El backend valida el enlace y genera un token aleatorio propio.
+6. En la base de datos solo guarda el hash de ese token.
+7. El usuario escribe una nueva password.
+8. El backend calcula el hash de la nueva password.
+9. Reemplaza `app_users.password_hash`.
+10. Marca el token como usado y revoca sesiones anteriores.
 
 ## Donde esta en el codigo
 
@@ -42,16 +42,28 @@ app.post("/api/forgot-password", async (req, res, next) => {
 Parte importante:
 
 ```js
-const token = randomToken();
-await supabase.from("password_resets").insert({
-  user_id: user.user_id,
-  token_hash: hashToken(token),
-  expires_at: addMinutes(15)
-});
-await sendResetEmail({ email: user.email, userId: user.user_id, token });
+await sendResetEmail({ email: user.email, userId: user.user_id });
 ```
 
-Esto genera el token, guarda su hash en Supabase y manda el enlace por correo.
+Esto pide a Supabase Auth que mande el enlace por correo.
+
+### Validar enlace de Supabase
+
+Archivo: `src/server.js`
+
+Ruta:
+
+```js
+app.post("/api/auth-email-callback", async (req, res, next) => {
+```
+
+Cuando el usuario abre el enlace, el backend valida el token de Supabase, identifica el correo y genera el token temporal propio:
+
+```js
+const token = await createPasswordResetToken(email);
+```
+
+Ese token se guarda hasheado en `password_resets` y se manda al formulario de cambio de password.
 
 ### Cambiar password
 
@@ -142,7 +154,6 @@ Minimo necesitas:
 - Node.js: ejecuta el backend.
 - Express: crea las rutas `/api/...`.
 - Supabase: base de datos PostgreSQL.
-- Nodemailer: envia correos por SMTP.
-- Un proveedor SMTP: Mailtrap, Gmail con app password, Outlook, SendGrid, etc.
+- Supabase Auth: envia los correos de verificacion y recuperacion.
 
-No necesitas una tecnologia extra para la recuperacion, pero si necesitas un servicio de correo real para que el enlace llegue al usuario.
+No necesitas Gmail, Brevo ni SMTP para que el enlace llegue al usuario.

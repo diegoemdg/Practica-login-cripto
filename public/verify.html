@@ -10,18 +10,7 @@
     <main class="auth">
       <section class="panel auth-panel">
         <h1>Verifica correo</h1>
-        <p>Te enviamos un codigo para comprobar que tu correo existe. Escribelo aqui para activar tu cuenta.</p>
-
-      <form data-endpoint="/api/verify-email" data-redirect="/login.html">
-        <label>ID
-          <input name="userId" autocomplete="username" data-user-from-url>
-        </label>
-        <label>Codigo
-          <input name="code" inputmode="numeric" maxlength="6" required>
-        </label>
-        <button type="submit">Finalizar verificacion</button>
-        <p class="message"></p>
-      </form>
+        <p>Te enviamos un enlace de Supabase para comprobar que tu correo existe. Abre ese enlace para activar tu cuenta.</p>
 
       <form class="secondary-form" data-endpoint="/api/resend-verification">
         <label>No llego el correo?

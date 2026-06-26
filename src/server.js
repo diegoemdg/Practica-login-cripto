@@ -6,7 +6,6 @@ const {
   hashPassword,
   verifyPassword,
   randomToken,
-  randomCode,
   hashToken
 } = require("./crypto/passwordHash");
 const { sendVerificationEmail, sendResetEmail } = require("./mail/mailer");
@@ -81,30 +80,138 @@ async function resendPendingVerification(userId, email, res) {
 }
 
 async function createVerification(user) {
-  const code = randomCode();
+  await sendVerificationEmail({
+    email: user.email,
+    userId: user.user_id
+  });
+}
+
+async function userFromSupabaseCallback({ accessToken, code }) {
+  if (accessToken) {
+    const { data, error } = await supabase.auth.getUser(accessToken);
+    if (error) throw error;
+    return data.user;
+  }
+
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    return data.user;
+  }
+
+  const error = new Error("El enlace no trae token de Supabase.");
+  error.status = 400;
+  throw error;
+}
+
+async function createPasswordResetToken(email) {
+  const { data: user, error } = await supabase
+    .from("app_users")
+    .select("user_id,email")
+    .eq("email", email)
+    .maybeSingle();
+  if (error) throw error;
+  if (!user) {
+    const notFound = new Error("No existe una cuenta local para este correo.");
+    notFound.status = 404;
+    throw notFound;
+  }
+
   const token = randomToken();
-
-  await supabase
-    .from("email_verifications")
-    .delete()
-    .eq("user_id", user.user_id)
-    .is("consumed_at", null);
-
-  const { error } = await supabase.from("email_verifications").insert({
+  const { error: resetError } = await supabase.from("password_resets").insert({
     user_id: user.user_id,
-    code_hash: hashToken(code),
     token_hash: hashToken(token),
     expires_at: addMinutes(15)
   });
+  if (resetError) throw resetError;
 
-  if (error) throw error;
-
-  await sendVerificationEmail({
-    email: user.email,
-    userId: user.user_id,
-    code
-  });
+  return token;
 }
+
+app.get("/auth/callback", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirmando correo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="auth">
+      <section class="panel auth-panel">
+        <h1>Confirmando correo</h1>
+        <p id="status">Estamos validando el enlace de Supabase...</p>
+      </section>
+    </main>
+    <script>
+      (async () => {
+        const status = document.getElementById("status");
+        const search = new URLSearchParams(location.search);
+        const hash = new URLSearchParams(location.hash.slice(1));
+        const error = hash.get("error_description") || search.get("error_description");
+        if (error) throw new Error(error);
+
+        const response = await fetch("/api/auth-email-callback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: search.get("mode") || "verify",
+            code: search.get("code") || "",
+            accessToken: hash.get("access_token") || ""
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No se pudo validar el enlace.");
+        location.replace(data.redirectTo || "/login.html");
+      })().catch((error) => {
+        document.getElementById("status").textContent = error.message;
+      });
+    </script>
+  </body>
+</html>`);
+});
+
+app.post("/api/auth-email-callback", async (req, res, next) => {
+  try {
+    requireFields(req.body, ["mode"]);
+    const mode = String(req.body.mode);
+    if (!["verify", "reset"].includes(mode)) {
+      return res.status(400).json({ error: "Modo de enlace invalido." });
+    }
+
+    const authUser = await userFromSupabaseCallback({
+      accessToken: req.body.accessToken,
+      code: req.body.code
+    });
+    const email = normalizeEmail(authUser && authUser.email);
+    if (!email) {
+      return res.status(400).json({ error: "Supabase no devolvio un correo valido." });
+    }
+
+    if (mode === "reset") {
+      const token = await createPasswordResetToken(email);
+      return res.json({
+        redirectTo: `/reset-password.html?token=${encodeURIComponent(token)}`
+      });
+    }
+
+    const { data: updatedUser, error } = await supabase
+      .from("app_users")
+      .update({ email_verified_at: new Date().toISOString() })
+      .eq("email", email)
+      .select("user_id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!updatedUser) {
+      return res.status(404).json({ error: "No existe una cuenta local para este correo." });
+    }
+
+    res.json({ redirectTo: "/login.html?verified=1" });
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.post("/api/register", async (req, res, next) => {
   try {
@@ -139,7 +246,7 @@ app.post("/api/register", async (req, res, next) => {
       console.error("No se pudo enviar el correo de verificacion:", verificationError);
       await supabase.from("app_users").delete().eq("user_id", data.user_id);
       return res.status(502).json({
-        error: "No se pudo enviar el correo de verificacion. Revisa la configuracion del correo e intenta de nuevo."
+        error: "No se pudo enviar el correo de verificacion desde Supabase. Revisa Auth > URL Configuration e intenta de nuevo."
       });
     }
 
@@ -151,45 +258,9 @@ app.post("/api/register", async (req, res, next) => {
 
 app.post("/api/verify-email", async (req, res, next) => {
   try {
-    requireFields(req.body, ["userId", "code"]);
-    const codeHash = hashToken(req.body.code);
-    const userId = normalizeUserId(req.body.userId);
-
-    const { data, error } = await supabase
-      .from("email_verifications")
-      .select("id,user_id,code_hash,expires_at,attempts,consumed_at")
-      .eq("user_id", userId)
-      .is("consumed_at", null)
-      .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return res.status(400).json({ error: "Codigo invalido o expirado." });
-    if (data.attempts >= 5) return res.status(429).json({ error: "Demasiados intentos. Solicita otro codigo." });
-
-    if (data.code_hash !== codeHash) {
-      await supabase
-        .from("email_verifications")
-        .update({ attempts: data.attempts + 1 })
-        .eq("id", data.id);
-      return res.status(400).json({ error: "Codigo invalido o expirado." });
-    }
-
-    const now = new Date().toISOString();
-    const { error: updateUserError } = await supabase
-      .from("app_users")
-      .update({ email_verified_at: now })
-      .eq("user_id", data.user_id);
-    if (updateUserError) throw updateUserError;
-
-    const { error: updateVerificationError } = await supabase
-      .from("email_verifications")
-      .update({ consumed_at: now })
-      .eq("id", data.id);
-    if (updateVerificationError) throw updateVerificationError;
-
-    res.json({ message: "Cuenta verificada correctamente." });
+    res.status(410).json({
+      error: "La verificacion ahora se completa dando clic al enlace enviado por Supabase."
+    });
   } catch (error) {
     next(error);
   }
@@ -268,14 +339,7 @@ app.post("/api/forgot-password", async (req, res, next) => {
     if (error) throw error;
 
     if (user) {
-      const token = randomToken();
-      const { error: resetError } = await supabase.from("password_resets").insert({
-        user_id: user.user_id,
-        token_hash: hashToken(token),
-        expires_at: addMinutes(15)
-      });
-      if (resetError) throw resetError;
-      await sendResetEmail({ email: user.email, userId: user.user_id, token });
+      await sendResetEmail({ email: user.email, userId: user.user_id });
     }
 
     res.json({ message: "Si el correo esta registrado, recibiras un enlace para cambiar tu password." });

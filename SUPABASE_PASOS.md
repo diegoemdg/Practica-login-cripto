@@ -43,6 +43,7 @@ Copy-Item .env.example .env
 Luego llena:
 
 ```env
+APP_URL=http://localhost:3000
 SUPABASE_URL=https://TU-PROYECTO.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=TU_SERVICE_ROLE_KEY
 PASSWORD_PEPPER=un-secreto-largo-y-aleatorio
@@ -50,16 +51,32 @@ PASSWORD_PEPPER=un-secreto-largo-y-aleatorio
 
 ## 5. Configurar correo
 
-Para enviar correos en Render Free usa Brevo API, porque Render Free bloquea puertos SMTP.
+El proyecto envia correos con Supabase Auth. En Supabase abre:
 
-Configura:
-
-```env
-BREVO_API_KEY=tu_api_key_de_brevo
-MAIL_FROM="Practica Criptografia <correo_verificado_en_brevo>"
+```text
+Authentication > URL Configuration
 ```
 
-Para pruebas locales tambien puedes usar SMTP con Gmail App Password o Mailtrap.
+En **Site URL** pon la URL donde corre la app. Para local:
+
+```text
+http://localhost:3000
+```
+
+En **Redirect URLs** agrega:
+
+```text
+http://localhost:3000/auth/callback
+https://practica-login-cripto.onrender.com/auth/callback
+```
+
+Cuando lo subas a Render, cambia `APP_URL` en Render a:
+
+```env
+APP_URL=https://practica-login-cripto.onrender.com
+```
+
+No necesitas Gmail, Brevo ni SMTP para que salgan los correos.
 
 ## 6. Instalar y ejecutar
 
@@ -81,7 +98,7 @@ http://localhost:3000
 
 1. Crea una cuenta.
 2. Revisa el correo recibido.
-3. Verifica con el enlace o con el codigo.
+3. Verifica con el enlace de Supabase.
 4. Inicia sesion.
 5. Usa "Restablecer password".
 6. Abre el enlace recibido y escribe una nueva password.
@@ -90,6 +107,6 @@ http://localhost:3000
 ## Problemas comunes
 
 - Si `npm` falla en PowerShell por politicas de ejecucion, usa `npm.cmd`.
-- Si no llegan correos, revisa SMTP_HOST, SMTP_USER y SMTP_PASS.
+- Si no llegan correos, revisa **Authentication > URL Configuration** y la carpeta de spam.
 - Si Supabase responde `Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY`, revisa el archivo `.env`.
 - Si el login dice que falta verificar, entra al enlace de verificacion primero.
