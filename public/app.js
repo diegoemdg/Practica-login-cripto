@@ -4,7 +4,15 @@ async function postJson(url, data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
-  const body = await response.json();
+
+  const text = await response.text();
+  let body = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch (_error) {
+    throw new Error("El servidor devolvio una pagina de error. Espera unos segundos y vuelve a intentar.");
+  }
+
   if (!response.ok) throw new Error(body.error || "Error en la solicitud");
   return body;
 }
